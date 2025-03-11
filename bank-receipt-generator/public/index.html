@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Generate Bank Receipt</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    label { display: block; margin: 10px 0 5px; font-weight: bold; }
+    input, select, button { padding: 5px; margin-bottom: 10px; width: 300px; }
+    button { background-color: #4CAF50; color: white; border: none; cursor: pointer; }
+    button:hover { background-color: #45a049; }
+    #clearButton { background-color: #f44336; }
+    #clearButton:hover { background-color: #da190b; }
+  </style>
+</head>
+<body>
+  <h1>Generate Bank Receipt</h1>
+  <form id="receiptForm">
+    <!-- payload.id -->
+    <label for="id">Transaction ID (payload.id):</label>
+    <input type="number" id="id" name="id" value="152">
+
+    <!-- payload.bankAccount.id -->
+    <label for="bankAccountId">Sender Bank Account ID (payload.bankAccount.id):</label>
+    <input type="number" id="bankAccountId" name="bankAccountId" value="19">
+
+    <!-- payload.bankAccount.fullName -->
+    <label for="bankFullName">Sender Full Name (payload.bankAccount.fullName):</label>
+    <input type="text" id="bankFullName" name="bankFullName" value="Manova Latín Investment and trading, S.A">
+
+    <!-- payload.bankAccount.props_ARS_CBU -->
+    <label for="bankProps_ARS_CBU">Sender CBU (payload.bankAccount.props_ARS_CBU):</label>
+    <input type="text" id="bankProps_ARS_CBU" name="bankProps_ARS_CBU" value="0000156007944115098260">
+
+    <!-- payload.bankAccount.props_ARS_CUIT -->
+    <label for="bankProps_ARS_CUIT">Sender CUIT (payload.bankAccount.props_ARS_CUIT):</label>
+    <input type="text" id="bankProps_ARS_CUIT" name="bankProps_ARS_CUIT" value="30711641005">
+
+    <!-- payload.providerTransactionId -->
+    <label for="providerTransactionId">Provider Transaction ID (payload.providerTransactionId):</label>
+    <input type="text" id="providerTransactionId" name="providerTransactionId" value="2369dbb9-248f-ef11-8269-0022481e89dc">
+
+    <!-- payload.transactionType -->
+    <label for="transactionType">Transaction Type (payload.transactionType):</label>
+    <select id="transactionType" name="transactionType">
+      <option value="1" selected>Debit (1)</option>
+      <option value="2">Credit (2)</option>
+    </select>
+
+    <!-- payload.operationType -->
+    <label for="operationType">Operation Type (payload.operationType):</label>
+    <select id="operationType" name="operationType">
+      <option value="1">Transfer (1)</option>
+      <option value="2">Deposit (2)</option>
+      <option value="3" selected>Withdraw (3)</option>
+      <option value="4">Buy (4)</option>
+      <option value="5">Sell (5)</option>
+      <option value="6">Transaction Fee (6)</option>
+      <option value="7">Platform Fee (7)</option>
+      <option value="8">Tax (8)</option>
+    </select>
+
+    <!-- payload.origin -->
+    <label for="origin">Origin (payload.origin):</label>
+    <input type="text" id="origin" name="origin" value="032">
+
+    <!-- payload.currency -->
+    <label for="currency">Currency (payload.currency):</label>
+    <input type="text" id="currency" name="currency" value="032">
+
+    <!-- payload.amount -->
+    <label for="amount">Amount (payload.amount):</label>
+    <input type="text" id="amount" name="amount" value="-450000.0000">
+
+    <!-- payload.fullName -->
+    <label for="fullName">Recipient Full Name (payload.fullName):</label>
+    <input type="text" id="fullName" name="fullName" value="LUIS ALBERTO NEME">
+
+    <!-- payload.props_ARS_CBU -->
+    <label for="props_ARS_CBU">Recipient CBU (payload.props_ARS_CBU):</label>
+    <input type="text" id="props_ARS_CBU" name="props_ARS_CBU" value="4530000800011272821329">
+
+    <!-- payload.props_ARS_CUIT -->
+    <label for="props_ARS_CUIT">Recipient CUIT (payload.props_ARS_CUIT):</label>
+    <input type="text" id="props_ARS_CUIT" name="props_ARS_CUIT" value="20239064877">
+
+    <!-- payload.props_ARS_COELSA_ID -->
+    <label for="props_ARS_COELSA_ID">Recipient COELSA ID (payload.props_ARS_COELSA_ID):</label>
+    <input type="text" id="props_ARS_COELSA_ID" name="props_ARS_COELSA_ID" value="L18MKX9R7RGR65W49O6WYV">
+
+    <!-- payload.createdAt -->
+    <label for="createdAt">Created At Timestamp (payload.createdAt):</label>
+    <input type="number" id="createdAt" name="name="createdAt"" value="1729457347000">
+    <small>(например, 1729457347000 = October 20, 2024, 05:49:07 PM)</small>
+
+    <button type="submit">Generate PDF</button>
+    <button type="button" id="clearButton">Clear All</button>
+  </form>
+
+  <script>
+    // Обработка отправки формы
+    document.getElementById('receiptForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const payload = {
+        id: document.getElementById('id').value ? parseInt(document.getElementById('id').value) : undefined,
+        bankAccount: {
+          id: document.getElementById('bankAccountId').value ? parseInt(document.getElementById('bankAccountId').value) : undefined,
+          props_ARS_CBU: document.getElementById('bankProps_ARS_CBU').value || undefined,
+          props_ARS_CUIT: document.getElementById('bankProps_ARS_CUIT').value || undefined,
+          fullName: document.getElementById('bankFullName').value || undefined
+        },
+        providerTransactionId: document.getElementById('providerTransactionId').value || undefined,
+        transactionType: document.getElementById('transactionType').value ? parseInt(document.getElementById('transactionType').value) : undefined,
+        operationType: document.getElementById('operationType').value ? parseInt(document.getElementById('operationType').value) : undefined,
+        origin: document.getElementById('origin').value || undefined,
+        currency: document.getElementById('currency').value || undefined,
+        amount: document.getElementById('amount').value || undefined,
+        props_ARS_CBU: document.getElementById('props_ARS_CBU').value || undefined,
+        props_ARS_CUIT: document.getElementById('props_ARS_CUIT').value || undefined,
+        props_ARS_COELSA_ID: document.getElementById('props_ARS_COELSA_ID').value || undefined,
+        fullName: document.getElementById('fullName').value || undefined,
+        createdAt: document.getElementById('createdAt').value ? parseInt(document.getElementById('createdAt').value) : undefined
+      };
+
+      const response = await fetch('/banks/generate-receipt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `receipt-${payload.id || 'unknown'}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+      } else {
+        const error = await response.text();
+        alert('Error: ' + error);
+      }
+    });
+
+    // Обработка кнопки "Очистить всё"
+    document.getElementById('clearButton').addEventListener('click', () => {
+      // Очищаем все input и select элементы
+      document.querySelectorAll('#receiptForm input, #receiptForm select').forEach(element => {
+        element.value = ''; // Устанавливаем пустую строку для всех полей
+      });
+    });
+  </script>
+</body>
+</html>
