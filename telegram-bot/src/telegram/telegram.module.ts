@@ -2,6 +2,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { TelegramController } from './telegram.controller';
+import { AlertController } from './controllers/alert.controller';
 import { BalanceController } from './controllers/balance.controller';
 import { RateController } from './controllers/rate.controller';
 import { TelegramService } from './telegram.service';
@@ -13,7 +14,7 @@ import { Telegraf } from 'telegraf';
   imports: [
     TypeOrmModule.forFeature([Merchant, Balance]),
   ],
-  controllers: [TelegramController, BalanceController, RateController],
+  controllers: [TelegramController, BalanceController, RateController, AlertController],
   providers: [
     TelegramService,
     {
