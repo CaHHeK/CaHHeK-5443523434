@@ -1,7 +1,7 @@
+// src/telegram/controllers/rate.controller.ts
 import { Controller, Inject, OnModuleInit } from '@nestjs/common';
+import { Telegraf, Context } from 'telegraf';
 import { TelegramService } from '../telegram.service';
-import { Telegraf } from 'telegraf';
-import { Context } from 'telegraf';
 
 @Controller('rate')
 export class RateController implements OnModuleInit {
@@ -12,12 +12,26 @@ export class RateController implements OnModuleInit {
 
   onModuleInit() {
     this.bot.command('rate', async (ctx: Context) => {
-      if (!ctx.chat) {
-        await ctx.reply('This command can only be used in a chat. Please add me to a group.');
+      const userId = ctx.from?.id;
+      const chatId = ctx.chat?.id;
+      if (!chatId || !userId) {
+        await ctx.reply('Не удалось определить пользователя или чат.');
         return;
       }
 
-      const chatId = ctx.chat.id;
+      const text = ctx.message?.['text'] || '';
+      const args = text.split(' ').slice(1); // Получаем аргументы после /rate
+      const adminIds = this.telegramService.getAdminIds();
+
+      if (adminIds.includes(userId) && args.length > 0) {
+        const merchantChatId = args[0];
+        console.log(`Admin ${userId} requested rates for merchantChatId: ${merchantChatId}`);
+        const rateInfo = await this.telegramService.getExchangeRatesForMerchantChat(merchantChatId);
+        await ctx.reply(rateInfo, { parse_mode: 'HTML' });
+        return;
+      }
+
+      console.log(`Non-admin ${userId} requested rates for chatId: ${chatId}`);
       const rateInfo = await this.telegramService.getExchangeRates(chatId);
       await ctx.reply(rateInfo, { parse_mode: 'HTML' });
     });
