@@ -1,3 +1,4 @@
+// src/telegram/controllers/alert.controller.ts
 import { Controller, Post, Body, HttpException, HttpStatus, Logger, OnModuleInit } from '@nestjs/common';
 import { TelegramService } from '../telegram.service';
 
@@ -8,25 +9,26 @@ export class AlertController implements OnModuleInit {
   constructor(private readonly telegramService: TelegramService) {}
 
   onModuleInit() {
-    // Устанавливаем рассылку балансов строго в 0, 6, 12, 18 часов по времени сервера
     this.scheduleBalanceUpdates();
   }
 
   private scheduleBalanceUpdates() {
     const scheduleNextRun = () => {
       const now = new Date();
-      const currentHour = now.getHours();
-      const nextScheduledHour = Math.ceil((currentHour + 1) / 6) * 6; // Определяем следующий интервал (0, 6, 12, 18)
+      const currentUTCHour = now.getUTCHours(); // Часы в UTC
+      const targetHours = [0, 6, 12, 18];
+      
+      // Находим следующий интервал UTC
+      let nextHour = targetHours.find(hour => hour > currentUTCHour) || targetHours[0];
       const nextRunDate = new Date(now);
-      nextRunDate.setHours(nextScheduledHour, 0, 0, 0); // Устанавливаем время на начало следующего интервала
+      nextRunDate.setUTCHours(nextHour, 0, 0, 0); // Устанавливаем время в UTC
 
-      // Если текущее время уже после следующего запланированного интервала, переходим к следующему дню
+      // Если следующий интервал уже прошёл или сейчас, добавляем 6 часов
       if (nextRunDate <= now) {
-        nextRunDate.setHours(nextRunDate.getHours() + 6);
+        nextRunDate.setUTCHours(nextRunDate.getUTCHours() + 6);
       }
 
-      const delayUntilNextRun = nextRunDate.getTime() - now.getTime(); // Вычисляем задержку до следующего запуска
-
+      const delayUntilNextRun = nextRunDate.getTime() - now.getTime();
       this.logger.log(`Next balance update scheduled at ${nextRunDate.toISOString()}`);
 
       setTimeout(async () => {
@@ -37,12 +39,11 @@ export class AlertController implements OnModuleInit {
           this.logger.error(`Failed to send automatic balance update: ${error.message}`);
         }
 
-        // После выполнения задачи планируем следующий запуск
+        // Планируем следующий запуск
         scheduleNextRun();
       }, delayUntilNextRun);
     };
 
-    // Запускаем первый раз
     scheduleNextRun();
   }
 
