@@ -15,21 +15,30 @@ export class AlertController implements OnModuleInit {
   private scheduleBalanceUpdates() {
     const scheduleNextRun = () => {
       const now = new Date();
-      const currentUTCHour = now.getUTCHours(); // Часы в UTC
+      const currentUTCHour = now.getUTCHours();
+      const currentUTCMinutes = now.getUTCMinutes();
+      const currentUTCSeconds = now.getUTCSeconds();
       const targetHours = [0, 6, 12, 18];
-      
-      // Находим следующий интервал UTC
+
+      // Находим следующий интервал
       let nextHour = targetHours.find(hour => hour > currentUTCHour) || targetHours[0];
       const nextRunDate = new Date(now);
-      nextRunDate.setUTCHours(nextHour, 0, 0, 0); // Устанавливаем время в UTC
+      nextRunDate.setUTCHours(nextHour, 0, 0, 0);
 
-      // Если следующий интервал уже прошёл или сейчас, добавляем 6 часов
+      // Если следующий интервал уже прошёл или сейчас, переходим к следующему дню
       if (nextRunDate <= now) {
-        nextRunDate.setUTCHours(nextRunDate.getUTCHours() + 6);
+        nextRunDate.setUTCDate(nextRunDate.getUTCDate() + 1);
+        nextRunDate.setUTCHours(targetHours[0], 0, 0, 0); // Устанавливаем 0:00 следующего дня
       }
 
       const delayUntilNextRun = nextRunDate.getTime() - now.getTime();
-      this.logger.log(`Next balance update scheduled at ${nextRunDate.toISOString()}`);
+      this.logger.log(`Next balance update scheduled at ${nextRunDate.toISOString()} (delay: ${delayUntilNextRun}ms)`);
+
+      if (delayUntilNextRun <= 0) {
+        this.logger.error('Delay is zero or negative, skipping to avoid infinite loop');
+        setTimeout(scheduleNextRun, 1000); // Ждём 1 секунду перед повторной попыткой
+        return;
+      }
 
       setTimeout(async () => {
         try {
@@ -38,8 +47,6 @@ export class AlertController implements OnModuleInit {
         } catch (error) {
           this.logger.error(`Failed to send automatic balance update: ${error.message}`);
         }
-
-        // Планируем следующий запуск
         scheduleNextRun();
       }, delayUntilNextRun);
     };

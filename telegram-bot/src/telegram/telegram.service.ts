@@ -93,20 +93,37 @@ export class TelegramService {
     }
   }
 
-  async sendBalanceToAllMerchants(): Promise<void> {
-    this.logger.log('Sending balance to all merchant chats');
-    const merchants = await this.merchantRepository.find({ relations: ['balances'] });
+  // src/telegram/telegram.service.ts (фрагмент)
+async sendBalanceToAllMerchants(): Promise<void> {
+  this.logger.log('Sending balance to all merchant chats');
+  const merchants = await this.merchantRepository.find({ relations: ['balances'] });
 
-    for (const merchant of merchants) {
+  for (const merchant of merchants) {
+    let retries = 3; // Максимум 3 попытки
+    while (retries > 0) {
       try {
         const balanceInfo = this.formatBalanceResponse(merchant);
         await this.bot.telegram.sendMessage(merchant.chat_id, balanceInfo, { parse_mode: 'HTML' });
         this.logger.log(`Balance sent to chat ${merchant.chat_id}`);
+        await new Promise(resolve => setTimeout(resolve, 1000)); // Задержка 1 секунда между сообщениями
+        break; // Успешно отправлено, выходим из цикла
       } catch (error) {
-        this.logger.error(`Failed to send balance to chat ${merchant.chat_id}: ${error.message}`);
+        if (error.code === 429) { // Ошибка "Too Many Requests"
+          const retryAfter = error.parameters?.retry_after || 35; // Время ожидания из ответа Telegram
+          this.logger.warn(`Too Many Requests for chat ${merchant.chat_id}, retrying after ${retryAfter}s`);
+          await new Promise(resolve => setTimeout(resolve, retryAfter * 1000));
+          retries--;
+        } else {
+          this.logger.error(`Failed to send balance to chat ${merchant.chat_id}: ${error.message}`);
+          break; // Другая ошибка, прекращаем попытки
+        }
       }
     }
+    if (retries === 0) {
+      this.logger.error(`Failed to send balance to chat ${merchant.chat_id} after retries`);
+    }
   }
+}
 
   private formatBalanceResponse(merchant: Merchant): string {
     const date = new Date().toISOString().replace('T', ' ').substr(0, 19) + 'Z';
