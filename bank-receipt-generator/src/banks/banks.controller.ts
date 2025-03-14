@@ -4,6 +4,9 @@ import * as PDFKit from 'pdfkit';
 import { ReceiptPayload, BankTransactionTypeEnum, BankTransactionOperationTypeEnum, CustomerOriginEnum, CurrencyEnum } from './banks.types';
 import * as QRCode from 'qrcode';
 import { join } from 'path';
+import * as fs from 'fs';
+// Используем CommonJS импорт для svg-to-pdfkit
+const SVGtoPDF = require('svg-to-pdfkit');
 
 @Controller('banks')
 export class BanksController {
@@ -28,14 +31,28 @@ export class BanksController {
       res.send(pdfData);
     });
 
-    // Логотип сверху посередине
-    const logoPath = join(__dirname, '..', '..', 'public', 'assets', 'logo.png');
-    const logoWidth = 80;
+    // Общие размеры для логотипа и QR-кода
+    const elementSize = 80; // Размер 80x80 пикселей для обоих
     const pageWidth = doc.page.width; // 226 пунктов
-    const logoX = (pageWidth - logoWidth) / 2;
-    const logoHeight = 80; // Предполагаемая высота логотипа
-    doc.image(logoPath, logoX, 10, { width: logoWidth });
-    const textStartY = 10 + logoHeight + 10;
+    const elementX = (pageWidth - elementSize) / 2; // Центрируем по горизонтали
+
+    // Логотип сверху посередине
+    const logoPath = join(__dirname, '..', '..', 'public', 'assets', 'logo.svg');
+    try {
+      const svgContent = fs.readFileSync(logoPath, 'utf8');
+      // Используем SVGtoPDF напрямую с одинаковыми размерами
+      SVGtoPDF(doc, svgContent, elementX, 10, {
+        width: elementSize,
+        height: elementSize, // Устанавливаем такую же высоту, как у QR-кода
+        preserveAspectRatio: 'xMidYMid meet', // Центрируем и сохраняем пропорции
+      });
+    } catch (error) {
+      console.error('Error loading or rendering SVG:', error);
+      // Запасной вариант на случай ошибки
+      doc.fontSize(12).text('Company Logo', elementX, 10, { width: elementSize, align: 'center' });
+    }
+
+    const textStartY = 10 + elementSize + 10; // Используем elementSize вместо logoHeight
     doc.y = textStartY;
 
     // Заголовок чека
@@ -126,20 +143,18 @@ export class BanksController {
     // Перемещаем курсор вниз перед QR-кодом
     doc.moveDown(2);
 
-    // Генерируем QR-код с повышенной четкостью
+    // Генерируем QR-код с повышенной чёткостью
     const qrData = `https://adm.localpay.online/assets/media/logos/default.svg?id=${Date.now()}`;
-    const qrSize = 80; // Размер QR-кода 80x80 пикселей
-    const qrX = (pageWidth - qrSize) / 2; // Центрируем
     const qrBuffer = await QRCode.toBuffer(qrData, {
-      width: qrSize * 10, // Увеличиваем внутреннее разрешение (800 пикселей)
+      width: elementSize * 10, // Увеличиваем внутреннее разрешение (800 пикселей)
       margin: 2, // Увеличиваем внешний отступ
       scale: 1, // Отключаем масштабирование, полагаемся на width
       errorCorrectionLevel: 'H', // Высокая устойчивость к ошибкам
     });
     const currentY = doc.y; // Текущая позиция курсора
-    doc.image(qrBuffer, qrX, currentY, {
-      width: qrSize, // Ограничиваем размер в PDF до 80 пикселей
-      height: qrSize, // Указываем явную высоту для точного соответствия
+    doc.image(qrBuffer, elementX, currentY, {
+      width: elementSize, // Ограничиваем размер в PDF до 80 пикселей
+      height: elementSize, // Указываем явную высоту для точного соответствия
     });
 
     // Завершаем документ
