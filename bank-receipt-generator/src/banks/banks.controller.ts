@@ -1,7 +1,9 @@
 import { Body, Controller, Post, Req, Res } from '@nestjs/common';
 import { FastifyRequest, FastifyReply } from 'fastify';
-import * as PDFDocument from 'pdfkit';
+import * as PDFKit from 'pdfkit';
 import { ReceiptPayload, BankTransactionTypeEnum, BankTransactionOperationTypeEnum, CustomerOriginEnum, CurrencyEnum } from './banks.types';
+import * as QRCode from 'qrcode';
+import { join } from 'path';
 
 @Controller('banks')
 export class BanksController {
@@ -11,7 +13,10 @@ export class BanksController {
     @Res() res: FastifyReply,
     @Body() payload: ReceiptPayload,
   ) {
-    const doc = new PDFDocument();
+    const doc = new PDFKit({
+      size: [226, 500], // Ширина 226 пунктов (~80 мм), начальная высота 500
+      margins: { top: 10, bottom: 10, left: 10, right: 10 },
+    });
     const buffers: Buffer[] = [];
 
     // Собираем данные в буфер
@@ -23,14 +28,23 @@ export class BanksController {
       res.send(pdfData);
     });
 
+    // Логотип сверху посередине
+    const logoPath = join(__dirname, '..', '..', 'public', 'assets', 'logo.png');
+    const logoWidth = 80;
+    const pageWidth = doc.page.width; // 226 пунктов
+    const logoX = (pageWidth - logoWidth) / 2;
+    const logoHeight = 80; // Предполагаемая высота логотипа
+    doc.image(logoPath, logoX, 10, { width: logoWidth });
+    const textStartY = 10 + logoHeight + 10;
+    doc.y = textStartY;
+
     // Заголовок чека
-    doc.fontSize(16).text('Bank Transaction Receipt', { align: 'center' });
-    doc.moveDown();
+    doc.fontSize(12).text('Bank Transaction Receipt', { align: 'center' });
+    doc.moveDown(0.5);
 
     // Основной текст чека
-    doc.fontSize(12);
+    doc.fontSize(8);
 
-    // Обязательные поля
     if (payload.id !== undefined && payload.id !== null) {
       doc.text(`Transaction ID: ${payload.id}`);
     }
@@ -38,10 +52,9 @@ export class BanksController {
       doc.text(`Provider Transaction ID: ${payload.providerTransactionId}`);
     }
     if (payload.id !== undefined || payload.providerTransactionId) {
-      doc.moveDown(); // Добавляем отступ только если есть хотя бы одно из полей
+      doc.moveDown(0.5);
     }
 
-    // Отправитель
     if (payload.bankAccount) {
       doc.text('From:');
       if (payload.bankAccount.fullName) {
@@ -53,10 +66,9 @@ export class BanksController {
       if (payload.bankAccount.props_ARS_CUIT) {
         doc.text(`  CUIT: ${payload.bankAccount.props_ARS_CUIT}`);
       }
-      doc.moveDown();
+      doc.moveDown(0.5);
     }
 
-    // Получатель
     doc.text('To:');
     if (payload.fullName) {
       doc.text(`  Name: ${payload.fullName}`);
@@ -70,17 +82,15 @@ export class BanksController {
     if (payload.props_ARS_COELSA_ID) {
       doc.text(`  COELSA ID: ${payload.props_ARS_COELSA_ID}`);
     }
-    doc.moveDown();
+    doc.moveDown(0.5);
 
-    // Сумма и валюта
     if (payload.amount) {
       const amount = Math.abs(parseFloat(payload.amount as unknown as string)).toFixed(2);
-      if (!isNaN(parseFloat(amount))) { // Проверяем, что amount валидное число
+      if (!isNaN(parseFloat(amount))) {
         doc.text(`Amount: ${amount} ${payload.currency === CurrencyEnum.ARS ? 'ARS' : 'Unknown'}`);
       }
     }
 
-    // Типы транзакций
     if (payload.transactionType !== undefined && payload.transactionType in BankTransactionTypeEnum) {
       doc.text(`Transaction Type: ${BankTransactionTypeEnum[payload.transactionType]}`);
     }
@@ -88,20 +98,17 @@ export class BanksController {
       doc.text(`Operation Type: ${BankTransactionOperationTypeEnum[payload.operationType]}`);
     }
 
-    // Происхождение
     if (payload.origin) {
       doc.text(`Origin: ${payload.origin === CustomerOriginEnum.ARS ? 'Argentina' : 'Unknown'}`);
     }
 
-    // Добавляем отступ перед датой, если есть предыдущие данные
     if (payload.amount || payload.transactionType !== undefined || payload.operationType !== undefined || payload.origin) {
-      doc.moveDown();
+      doc.moveDown(0.5);
     }
 
-    // Дата
     if (payload.createdAt !== undefined && !isNaN(payload.createdAt)) {
       const date = new Date(payload.createdAt);
-      if (date.toString() !== 'Invalid Date') { // Проверяем, что дата валидна
+      if (date.toString() !== 'Invalid Date') {
         const options: Intl.DateTimeFormatOptions = {
           timeZone: 'America/Argentina/Buenos_Aires',
           year: 'numeric',
@@ -115,6 +122,25 @@ export class BanksController {
         doc.text(`Date: ${formattedDate}`);
       }
     }
+
+    // Перемещаем курсор вниз перед QR-кодом
+    doc.moveDown(2);
+
+    // Генерируем QR-код с повышенной четкостью
+    const qrData = `https://adm.localpay.online/assets/media/logos/default.svg?id=${Date.now()}`;
+    const qrSize = 80; // Размер QR-кода 80x80 пикселей
+    const qrX = (pageWidth - qrSize) / 2; // Центрируем
+    const qrBuffer = await QRCode.toBuffer(qrData, {
+      width: qrSize * 10, // Увеличиваем внутреннее разрешение (800 пикселей)
+      margin: 2, // Увеличиваем внешний отступ
+      scale: 1, // Отключаем масштабирование, полагаемся на width
+      errorCorrectionLevel: 'H', // Высокая устойчивость к ошибкам
+    });
+    const currentY = doc.y; // Текущая позиция курсора
+    doc.image(qrBuffer, qrX, currentY, {
+      width: qrSize, // Ограничиваем размер в PDF до 80 пикселей
+      height: qrSize, // Указываем явную высоту для точного соответствия
+    });
 
     // Завершаем документ
     doc.end();
