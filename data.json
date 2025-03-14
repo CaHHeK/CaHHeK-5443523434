@@ -1,0 +1,10 @@
+{
+  "Request ID": "123",
+  "Date": "2025-03-14",
+  "CustomerId": "CUST001",
+  "CBU": "1234567890123456789012",
+  "Coelsa ID": "COEL123",
+  "Name": "John Doe",
+  "Amount": "1000.50",
+  "Receipt": "REC123"
+}

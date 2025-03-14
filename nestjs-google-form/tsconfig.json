@@ -1,0 +1,16 @@
+{
+    "compilerOptions": {
+      "module": "commonjs",
+      "target": "es2017",
+      "sourceMap": true,
+      "outDir": "dist",
+      "rootDir": "src",
+      "strict": true,
+      "esModuleInterop": true,
+      "skipLibCheck": true,
+      "experimentalDecorators": true,  // Добавлено для поддержки декораторов
+      "emitDecoratorMetadata": true    // Добавлено для метаданных декораторов
+    },
+    "include": ["src/**/*"],
+    "exclude": ["node_modules"]
+  }
